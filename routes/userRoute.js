@@ -94,7 +94,6 @@ userRouter.put("/:userId", async (req, res, next) => {
     let user = await User.findById(userId);
     if (age) user.age = age;
     if (name) user.name = name;
-    console.log({ userAfterEdit: user });
     await user.save();
 
     return res.send({ user });

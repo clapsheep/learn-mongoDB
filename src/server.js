@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const { userRouter } = require("../routes/userRoute");
+const { blogRouter } = require("../routes/blogRoute");
 const mongoose = require("mongoose");
 
 const MONGO_URL =
@@ -14,6 +15,7 @@ const server = async () => {
     app.use(express.json());
 
     app.use("/user", userRouter);
+    app.use("/blog", blogRouter);
 
     app.listen(3000, () => {
       console.log("서버 연결 성공");
