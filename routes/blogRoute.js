@@ -33,7 +33,7 @@ blogRouter.post("/", async (req, res, next) => {
 });
 blogRouter.get("/", async (req, res, next) => {
   try {
-    const blogs = await Blog.find({});
+    const blogs = await Blog.find({}).limit(10);
     return res.send({ blogs });
   } catch (err) {
     console.log(err);

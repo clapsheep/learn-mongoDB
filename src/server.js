@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const { userRouter, blogRouter, commentRouter } = require("../routes");
+const { generateFakeData } = require("../faker");
 
 const mongoose = require("mongoose");
 
@@ -10,6 +11,9 @@ const MONGO_URL =
 const server = async () => {
   try {
     await mongoose.connect(MONGO_URL, { dbName: "blog" });
+
+    // generateFakeData(100, 10, 300);
+
     console.log("DB연결 성공");
 
     app.use(express.json());
