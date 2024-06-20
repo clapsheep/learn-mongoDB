@@ -1,21 +1,31 @@
 const { default: axios } = require("axios");
 
+const URL = "http://localhost:3000";
 const test = async () => {
   let {
     data: { blogs },
-  } = await axios.get("http://localhost:3000/blog");
+  } = await axios.get(`${URL}/blog`);
 
   blogs = await Promise.all(
     blogs.map(async (blog) => {
-      const res1 = await axios.get(`http://localhost:3000/user/${blog.user}`);
-      const res2 = await axios.get(
-        `http://localhost:3000/blog/${blog._id}/comment`
-      );
+      const [res1, res2] = await Promise.all([
+        axios.get(`${URL}/user/${blog.user}`),
+        axios.get(`${URL}/blog/${blog._id}/comment`),
+      ]);
+
       blog.user = res1.data.user;
-      blog.comments = res2.data.comments;
+      blog.comments = await Promise.all(
+        res2.data.comments.map(async (comment) => {
+          const {
+            data: { user },
+          } = await axios.get(`${URL}/user/${comment.user}`);
+          comment.user = user;
+          return comment;
+        })
+      );
       return blog;
     })
   );
-  console.log(blogs[0]);
+  console.dir(blogs[0], { depth: 10 });
 };
 test();
