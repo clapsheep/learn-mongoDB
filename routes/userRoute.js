@@ -1,105 +1,105 @@
 const { Router } = require("express");
 const userRouter = Router();
-const mongoose = require("mongoose");
-const { User } = require("../src/models");
+const { User, Blog } = require("../src/models");
+const valid = require("../utils/valid");
+const { errMessage } = require("../utils/err");
 
 userRouter.get("/", async (req, res, next) => {
   try {
     const users = await User.find({});
     res.send({ users });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
 
 userRouter.get("/:userId", async (req, res, next) => {
   try {
     const { userId } = req.params;
-    if (!mongoose.isValidObjectId(userId)) {
-      return res.status(400).send({
-        err: "userId가 잘못됐습니다.",
-      });
-    }
+    valid.userId(userId);
+
     const user = await User.findOne({ _id: userId });
     return res.send({ user });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
 
 userRouter.post("/", async (req, res, next) => {
   try {
     const { username, name } = req.body;
-    if (!username) {
-      return res.status(400).send({ err: "username을 입력해주세요." });
-    }
-    if (!name) {
-      return res.status(400).send({ err: "name을 입력해주세요." });
-    }
+    valid.filledusername(username);
+    valid.filledName(name);
 
     const user = new User(req.body);
     await user.save();
     res.send({ user });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
 
 userRouter.delete("/:userId", async (req, res, next) => {
   try {
     const { userId } = req.params;
-    if (!mongoose.isValidObjectId(userId)) {
-      return res.status(400).send({
-        err: "userId가 잘못됐습니다.",
-      });
-    }
-    const user = await User.findOneAndDelete({ _id: userId });
+    valid.userId(userId);
+
+    const [user] = await Promise.all([
+      User.findOneAndDelete({ _id: userId }),
+      Blog.deleteMany({ "user._id": userId }),
+      Blog.updateMany(
+        { "comments.user": userId },
+        { $pull: { comments: { user: userId } } }
+      ),
+      Comment.deleteMany({ user: userId }),
+    ]);
+
     return req.send({ user });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
 
 userRouter.put("/:userId", async (req, res, next) => {
   try {
     const { userId } = req.params;
-    if (!mongoose.isValidObjectId(userId)) {
-      return res.status(400).send({
-        err: "userId가 잘못됐습니다.",
-      });
-    }
+    valid.userId(userId);
 
-    const { age } = req.body;
-    if (!age) {
-      return res.status(400).send({ err: "나이를 입력해주세요." });
+    const { age, name } = req.body;
+    valid.filledAge(res, age);
+    if (!age && !name) {
+      return res
+        .status(400)
+        .send({ err: "age와 name은 필수 입력 사항입니다." });
     }
     if (typeof age !== "number") {
-      return res.status(400).send({ err: "나이는 숫자로만 입력해주세요." });
+      return res.status(400).send({ err: "age를 숫자로 입력해주세요." });
     }
-    // 이미 생성된 유저의 required 속성을 무시하고 업데이트가 되는 문제가 생김
-    // [문제해결 방법 1]
-    // let updateBody = {};
-    // if (age) updateBody.age = age;
-    // if (name) updateBody.name = name;
-    // const user = await User.findByIdAndUpdate(userId, { age }, { new: true });
-    // 위의 문제를 해결하기 위해 클라이언트단에서 밸리데이션을 해도 OK -> DB 요청 1번
+    if (typeof name.first !== "string" && typeof name.last !== "string") {
+      return res.status(400).send({ err: "name은 문자로 입력해주세요." });
+    }
 
-    // [문제해결 방법 2]
-    // 몽구스가 알아서 처리하게 하는 방법 -> DB에서 user정보를 한번 더 받아옴 -> DB 요청 2번
-    // 해당 이슈로 2번 요청을 하는게 비효율적이고 성능적으로 느리지만, 1개의 데이터 1번정도 더 받아오는 것은 큰 차이가 없음 (데이터가 복잡할 때, Developer의 선택)
     let user = await User.findById(userId);
+
     if (age) user.age = age;
-    if (name) user.name = name;
+    if (name) {
+      user.name = name;
+      // 유저 정보가 바뀌었을 때, Blog에 올라간 user정보도 바꿔주는 API
+      await Promise.all([
+        Blog.updateMany({ "user._id": userId }, { "user.name": name }),
+        Blog.updateMany(
+          {},
+          { "comments.$[].userFullName": `${name.first} ${name.last}` },
+          { arrayFilters: [{ "comment.user": userId }] }
+        ),
+      ]);
+    }
+
     await user.save();
 
     return res.send({ user });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
 module.exports = { userRouter };

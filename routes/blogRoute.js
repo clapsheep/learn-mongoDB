@@ -1,72 +1,59 @@
 const { Router } = require("express");
 const blogRouter = Router();
 const { Blog, User } = require("../src/models");
-const { isValidObjectId } = require("mongoose");
+const valid = require("../utils/valid");
+const { errMessage } = require("../utils/err");
 
 blogRouter.post("/", async (req, res, next) => {
   try {
     const { title, content, islive, userId } = req.body;
-    if (typeof title !== "string") {
-      res.status(400).send({ err: "타이틀을 문자로 입력해주세요." });
-    }
-    if (typeof content !== "string") {
-      res.status(400).send({ err: "내용을 문자로 입력해주세요." });
-    }
-    if (islive && typeof islive !== "string") {
-      res.status(400).send({ err: "islive는 Boolean 타입입니다." });
-    }
-    if (!isValidObjectId(userId)) {
-      res.status(400).send({ err: "userId가 DB형식에 맞지 않습니다." });
-    }
+
+    valid.title(title);
+    valid.content(content);
+    valid.islive(islive);
+    valid.userId(userId);
+
     let user = await User.findById(userId);
-    if (!user) {
-      res.status(400).send({ err: "userId가 DB에 존재하지 않습니다." });
-    }
+    valid.user(user);
 
     let blog = new Blog({ ...req.body, user });
     await blog.save();
     return res.send({ blog });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
+
 blogRouter.get("/", async (req, res, next) => {
   try {
-    const blogs = await Blog.find({}).limit(10);
+    const blogs = await Blog.find({}).limit(20);
     return res.send({ blogs });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
+
 blogRouter.get("/:blogId", async (req, res, next) => {
   try {
     const { blogId } = req.params;
-    if (!isValidObjectId(blogId)) {
-      return res.status(400).send({ err: "blogId가 DB형식에 맞지 않습니다." });
-    }
+    valid.blogId(blogId);
+
     const blog = await Blog.findOne({ _id: blogId });
     return res.send({ blog });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
 
 blogRouter.put("/:blogId", async (req, res, next) => {
   try {
     const { blogId } = req.params;
-    if (!isValidObjectId(blogId)) {
-      return res.status(400).send({ err: "blogId가 DB형식에 맞지 않습니다." });
-    }
+    valid.blogId(blogId);
+
     const { title, content } = req.body;
-    if (typeof title !== "string") {
-      res.status(400).send({ err: "타이틀을 문자로 입력해주세요." });
-    }
-    if (typeof content !== "string") {
-      res.status(400).send({ err: "내용을 문자로 입력해주세요." });
-    }
+    valid.title(title);
+    valid.content(content);
+
     const blog = await Blog.findOneAndUpdate(
       { _id: blogId },
       { title, content },
@@ -74,23 +61,18 @@ blogRouter.put("/:blogId", async (req, res, next) => {
     );
     return res.send({ blog });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    errMessage(res, err);
   }
 });
 
 blogRouter.patch("/:blogId/live", async (req, res, next) => {
   try {
     const { blogId } = req.params;
-    if (!isValidObjectId(blogId)) {
-      return res.status(400).send({ err: "blogId가 DB형식에 맞지 않습니다." });
-    }
+    valid.blogId(blogId);
+
     const { islive } = req.body;
-    if (typeof islive !== "boolean") {
-      return res
-        .status(400)
-        .send({ err: "islive는 boolean 타입이어야 합니다." });
-    }
+    valid.islive(islive);
+
     const blog = await Blog.findOneAndUpdate(
       { _id: blogId },
       { islive },
@@ -98,8 +80,7 @@ blogRouter.patch("/:blogId/live", async (req, res, next) => {
     );
     return res.send({ blog });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: err.massage });
+    err();
   }
 });
 

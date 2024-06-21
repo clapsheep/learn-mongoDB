@@ -1,31 +1,17 @@
+console.log("클라이언트 코드 실행");
+
 const { default: axios } = require("axios");
 
-const URL = "http://localhost:3000";
+const URI = "http://localhost:3000";
+
 const test = async () => {
+  console.time("loading time : ");
+
   let {
     data: { blogs },
-  } = await axios.get(`${URL}/blog`);
+  } = await axios.get(`${URI}/blog`);
+  console.log("블로그 전체를 읽었지만 1번째 거만 출력", blogs[0]);
 
-  blogs = await Promise.all(
-    blogs.map(async (blog) => {
-      const [res1, res2] = await Promise.all([
-        axios.get(`${URL}/user/${blog.user}`),
-        axios.get(`${URL}/blog/${blog._id}/comment`),
-      ]);
-
-      blog.user = res1.data.user;
-      blog.comments = await Promise.all(
-        res2.data.comments.map(async (comment) => {
-          const {
-            data: { user },
-          } = await axios.get(`${URL}/user/${comment.user}`);
-          comment.user = user;
-          return comment;
-        })
-      );
-      return blog;
-    })
-  );
-  console.dir(blogs[0], { depth: 10 });
+  console.timeEnd("loading time : ");
 };
 test();
